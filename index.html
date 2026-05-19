@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Relatório de Curtidas</title>
+    <link rel="stylesheet" href="css/style.css" />
+  </head>
+  <body>
+    <main class="dashboard">
+      <header class="header">
+        <div class="title-area">
+          <div class="brand-area">
+            <img id="platformLogo" src="assets/logo_rd-removebg-preview.png" alt="Logo da plataforma" />
+            <div class="brand-text">
+              <div class="brand-line platform-line">
+                <span>Plataforma</span>
+                <strong id="platformName"></strong>
+              </div>
+              <div class="brand-line store-line">
+                <span>Loja usando o site</span>
+                <strong id="businessName"></strong>
+              </div>
+            </div>
+          </div>
+          <h1>Relatório de Curtidas</h1>
+          <p>Acompanhe o desempenho das suas divulgações.</p>
+        </div>
+
+        <div class="header-actions">
+          <button class="print-button" id="printReport" type="button">
+            <span class="button-icon" aria-hidden="true">▣</span>
+            Imprimir relatório
+          </button>
+          <div class="filters" aria-label="Filtros do relatório">
+            <label class="field">
+              <span>Período</span>
+              <input id="dateRange" type="text" readonly />
+            </label>
+            <label class="field">
+              <span>Filtro rápido</span>
+              <select id="periodFilter">
+                <option>Este mês</option>
+                <option>Últimos 7 dias</option>
+                <option>Últimos 30 dias</option>
+                <option>Este ano</option>
+              </select>
+            </label>
+          </div>
+        </div>
+      </header>
+
+      <section class="metric-grid" id="metricCards" aria-label="Resumo de curtidas"></section>
+
+      <section class="main-grid">
+        <article class="panel chart-panel">
+          <div class="panel-header">
+            <h2>Curtidas ao longo do tempo</h2>
+            <select id="chartGranularity" aria-label="Granularidade do gráfico">
+              <option>Diário</option>
+              <option>Semanal</option>
+              <option>Mensal</option>
+            </select>
+          </div>
+          <div class="line-chart-wrap">
+            <canvas id="likesLineChart" width="900" height="420"></canvas>
+          </div>
+        </article>
+
+        <article class="panel">
+          <div class="panel-header">
+            <h2>Top publicações</h2>
+            <select id="postFilter" aria-label="Filtro de publicações">
+              <option>Todas</option>
+              <option>Promoções</option>
+              <option>Bolos</option>
+              <option>Doces</option>
+            </select>
+          </div>
+          <div class="top-posts" id="topPosts"></div>
+        </article>
+      </section>
+
+      <section class="bottom-grid">
+        <article class="panel compact-panel">
+          <div class="panel-title-icon">
+            <span class="mini-icon outline" aria-hidden="true">◷</span>
+            <h2>Horários com mais curtidas</h2>
+          </div>
+          <div class="bar-chart" id="hourChart"></div>
+          <p class="highlight">
+            <span aria-hidden="true">★</span>
+            Pico de curtidas entre 19h e 21h
+          </p>
+        </article>
+
+        <article class="panel compact-panel">
+          <div class="panel-title-icon">
+            <span class="mini-icon filled" aria-hidden="true">▦</span>
+            <h2>Dias da semana com mais curtidas</h2>
+          </div>
+          <div class="bar-chart" id="weekChart"></div>
+          <p class="highlight">
+            <span aria-hidden="true">★</span>
+            Sexta-feira é o dia com mais interação
+          </p>
+        </article>
+
+        <article class="panel compact-panel">
+          <div class="panel-title-icon">
+            <span class="mini-icon warm" aria-hidden="true">●</span>
+            <h2>Insights para você</h2>
+          </div>
+          <div class="insights" id="insights"></div>
+        </article>
+      </section>
+
+      <footer id="reportFooter"></footer>
+    </main>
+
+    <script src="js/dashboard.js"></script>
+  </body>
+</html>
