@@ -103,16 +103,16 @@ button, input, select {
 }
 
 .brand-line strong {
-  font-size: 14px;
+  font-size: 25px;
   font-weight: 700;
-  color: var(--text);
+  color: var(--purple);
 }
 
 h1 {
   font-size: clamp(26px, 3vw, 32px);
   font-weight: 800;
   letter-spacing: -0.02em;
-  line-height: 1.15;
+  line-height: 1.5;
 }
 
 .title-area > p {

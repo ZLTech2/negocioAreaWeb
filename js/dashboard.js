@@ -84,7 +84,6 @@ const hourChart    = document.querySelector("#hourChart");
 const weekChart    = document.querySelector("#weekChart");
 const insightsEl   = document.querySelector("#insights");
 const reportFooter = document.querySelector("#reportFooter");
-const dateRange    = document.querySelector("#dateRange");
 const platformLogo = document.querySelector("#platformLogo");
 const platformName = document.querySelector("#platformName");
 const businessName = document.querySelector("#businessName");
@@ -271,7 +270,7 @@ function setupActions() {
 platformLogo.src          = reportData.platform.logo;
 platformName.textContent  = reportData.platform.name;
 businessName.textContent  = reportData.business.name;
-dateRange.value           = reportData.period;
+
 
 renderMetrics(reportData.metrics);
 renderTopPosts(reportData.topPosts);
