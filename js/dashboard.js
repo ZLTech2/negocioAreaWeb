@@ -38,16 +38,18 @@ const reportData = {
       color: "blue",
     },
   ],
+
+  regions: [
+    { bairro: "Itaquera",   likes: 320, color: "#6b4ce6" },
+    { bairro: "Guaianases", likes: 210, color: "#8b5cf6" },
+    { bairro: "São Mateus", likes: 180, color: "#a78bfa" },
+    { bairro: "Tatuapé",    likes: 140, color: "#c4b5fd" },
+    { bairro: "Penha",      likes: 90,  color: "#ddd6fe" },
+  ],
+
   dailyLikes: [
     6, 5, 20, 25, 12, 18, 20, 39, 32, 38, 30, 40, 46, 60, 46, 30, 38, 46, 67,
     72, 64, 69, 64, 74, 93,
-  ],
-  topPosts: [
-    { title: "Promoção de Brigadeiro", likes: 89, image: "🍫", tone: ["#6b3f2f", "#d9a56f"] },
-    { title: "Bolo de Morango",        likes: 76, image: "🍰", tone: ["#a33b48", "#f2b7b2"] },
-    { title: "Caixa de Doces para Presente", likes: 58, image: "🎁", tone: ["#d56730", "#f5c557"] },
-    { title: "Cupcakes Decorados",     likes: 45, image: "🧁", tone: ["#86533a", "#f0d2a6"] },
-    { title: "Promoção de Páscoa",     likes: 32, image: "🍯", tone: ["#b86f29", "#f2cd73"] },
   ],
   hours: [
     { label: "0h",  value: 10 },
@@ -108,19 +110,19 @@ function renderMetrics(metrics) {
     .join("");
 }
 
-function renderTopPosts(posts) {
-  const maxLikes = Math.max(...posts.map((p) => p.likes));
-  topPostsEl.innerHTML = posts
-    .map((post) => {
-      const width = Math.round((post.likes / maxLikes) * 100);
+function renderRegions(regions) {
+  const maxLikes = Math.max(...regions.map((r) => r.likes));
+  topPostsEl.innerHTML = regions
+    .map((region) => {
+      const width = Math.round((region.likes / maxLikes) * 100);
       return `
         <div class="post-row">
-          <span class="post-image" style="background: linear-gradient(135deg, ${post.tone[0]}, ${post.tone[1]});" aria-hidden="true">${post.image}</span>
-          <p class="post-title">${post.title}</p>
-          <div class="progress" aria-label="${post.likes} curtidas">
-            <span style="width: ${width}%"></span>
+          <span class="post-image" style="background: ${region.color}; display:flex; align-items:center; justify-content:center; font-size:1.1rem;" aria-hidden="true"></span>
+          <p class="post-title">${region.bairro}</p>
+          <div class="progress" aria-label="${region.likes} curtidas">
+            <span style="width: ${width}%; background: ${region.color};"></span>
           </div>
-          <strong class="post-likes">${post.likes}</strong>
+          <strong class="post-likes">${region.likes}</strong>
         </div>
       `;
     })
@@ -267,18 +269,16 @@ function setupActions() {
 
 // ── Init ─────────────────────────────────────────────────────────────────────
 
-platformLogo.src          = reportData.platform.logo;
-platformName.textContent  = reportData.platform.name;
-businessName.textContent  = reportData.business.name;
-
+platformLogo.src         = reportData.platform.logo;
+platformName.textContent = reportData.platform.name;
+businessName.textContent = reportData.business.name;
 
 renderMetrics(reportData.metrics);
-renderTopPosts(reportData.topPosts);
-renderBarChart(hourChart,  reportData.hours);
-renderBarChart(weekChart,  reportData.weekdays);
+renderRegions(reportData.regions);
+renderBarChart(hourChart, reportData.hours);
+renderBarChart(weekChart, reportData.weekdays);
 renderInsights(reportData.insights);
 
-// Draw chart after layout renders
 requestAnimationFrame(() => {
   drawLineChart(reportData.dailyLikes);
 });
