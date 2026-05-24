@@ -398,12 +398,13 @@ function renderInsights(data) {
   if (data.publicacaoMaisCurtida && data.publicacaoMaisCurtida !== '—') {
     insights.push({ text: `"${data.publicacaoMaisCurtida}" é sua publicação com mais engajamento.`, icon: '★', color: 'yellow' });
   }
-
-  const semana = data.curtidasPorDiaSemana || [];
-  if (semana.length) {
-    const melhorDia = semana.reduce((a, b) => (b.total > a.total ? b : a));
-    insights.push({ text: `${melhorDia.diaSemana}feira é o seu melhor dia da semana para engajamento.`, icon: '♥', color: 'pink' });
-  }
+  
+const semana = data.curtidasPorDiaSemana || [];
+if (semana.length) {
+  const NOMES_DIA = { 'Seg':'Segunda-feira','Ter':'Terça-feira','Qua':'Quarta-feira','Qui':'Quinta-feira','Sex':'Sexta-feira','Sáb':'Sábado','Dom':'Domingo' };
+  const melhorDia = semana.reduce((a, b) => (b.total > a.total ? b : a));
+  insights.push({ text: `${NOMES_DIA[melhorDia.diaSemana] || melhorDia.diaSemana} é o seu melhor dia da semana para engajamento.`, icon: '♥', color: 'pink' });
+}
 
   insightsEl.innerHTML = insights.map((i) => `
     <div class="insight-row">
