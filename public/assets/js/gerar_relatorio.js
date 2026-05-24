@@ -1,608 +1,31 @@
 /**
  * gerar_relatorio.js
- * Gera o relatório executivo .docx com os dados reais da API.
- * Depende da biblioteca docx carregada via CDN (UMD build).
+ * Gera o relatório executivo em PDF usando jsPDF + html2canvas.
+ * As libs são carregadas via CDN no dashboard_empresa.html.
  */
 
-// Resolve o namespace docx independente de como o CDN o expõe
-function resolverDocx() {
-  if (typeof window !== 'undefined' && window.docx) return window.docx;
-  if (typeof self !== 'undefined' && self.docx) return self.docx;
-  throw new Error('Biblioteca docx não carregada. Verifique a tag <script> do CDN no HTML.');
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+const fmt  = (n) => Number(n ?? 0).toLocaleString('pt-BR');
+const pct  = (v) => `${Number(v ?? 0) >= 0 ? '+' : ''}${Number(v ?? 0).toFixed(1)}%`;
+
+function formatDataBr(iso) {
+  if (!iso) return '';
+  const [, m, d] = iso.split('-');
+  return `${d}/${m}`;
 }
 
-async function gerarRelatorioDocx(analyticsData, nomeEmpresa, periodoLabel) {
-  const docxLib = resolverDocx();
-  const {
-    Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell,
-    AlignmentType, BorderStyle, WidthType, ShadingType, VerticalAlign,
-    HeadingLevel, TabStopType, TabStopPosition, LevelFormat,
-    PageNumber, NumberFormat,
-  } = docxLib;
-
-  // ── Cores e constantes ────────────────────────────────────────────────────
-
-  const ROXO      = '6B4CE6';
-  const ROXO_DARK = '5235CC';
-  const CINZA     = 'F4F5FB';
-  const TEXTO     = '0F1221';
-  const MUTED     = '6B7494';
-  const VERDE     = '22C55E';
-  const VERMELHO  = 'EC4899';
-  const AMARELO   = 'F59E0B';
-  const BORDA     = 'E8EAF4';
-
-  const PAGE_W    = 11906; // A4 largura DXA
-  const PAGE_H    = 16838;
-  const MARGIN    = 1134; // ~2cm
-  const CONTENT_W = PAGE_W - MARGIN * 2; // 9638 DXA
-
-  // ── Helpers ───────────────────────────────────────────────────────────────
-
-  const bordaCelula = (color = BORDA) => ({
-    top:    { style: BorderStyle.SINGLE, size: 1, color },
-    bottom: { style: BorderStyle.SINGLE, size: 1, color },
-    left:   { style: BorderStyle.SINGLE, size: 1, color },
-    right:  { style: BorderStyle.SINGLE, size: 1, color },
-  });
-
-  const semBorda = () => ({
-    top:    { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
-    bottom: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
-    left:   { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
-    right:  { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
-  });
-
-  const paragrafoVazio = (spacing = 160) =>
-    new Paragraph({ children: [new TextRun('')], spacing: { after: spacing } });
-
-  const linhaDivisoria = (color = ROXO) =>
-    new Paragraph({
-      children: [new TextRun('')],
-      border: { bottom: { style: BorderStyle.SINGLE, size: 6, color, space: 1 } },
-      spacing: { after: 200 },
-    });
-
-  const tituloSecao = (texto) =>
-    new Paragraph({
-      children: [new TextRun({ text: texto, bold: true, size: 26, color: ROXO, font: 'Arial' })],
-      spacing: { before: 300, after: 160 },
-      border: { bottom: { style: BorderStyle.SINGLE, size: 3, color: ROXO, space: 1 } },
-    });
-
-  const fmt = (n) => Number(n ?? 0).toLocaleString('pt-BR');
-  const pct = (v) => `${v >= 0 ? '+' : ''}${Number(v ?? 0).toFixed(1)}%`;
-
-  // ── Dados ─────────────────────────────────────────────────────────────────
-
-  const data          = analyticsData;
-  const variacao      = data.variacaoPercentual ?? 0;
-  const bairros       = data.curtidasPorBairro  || [];
-  const porDia        = data.curtidasPorDia      || [];
-  const porHora       = data.curtidasPorHora     || [];
-  const porSemana     = data.curtidasPorDiaSemana|| [];
-  const totalBairros  = bairros.reduce((s, b) => s + b.total, 0) || 1;
-
-  const dataEmissao   = new Date().toLocaleDateString('pt-BR', {
-    day: '2-digit', month: '2-digit', year: 'numeric',
-  });
-
-  // Peak hora
-  const peakHora = porHora.length
-    ? porHora.reduce((a, b) => (b.total > a.total ? b : a))
-    : null;
-
-  // Peak dia semana
-  const ORDER_DIA = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
-  const mapaHora  = {};
-  porHora.forEach(({ hora, total }) => { mapaHora[hora] = total; });
-
-  const peakDia = porSemana.length
-    ? porSemana.reduce((a, b) => (b.total > a.total ? b : a))
-    : null;
-
-  // ══════════════════════════════════════════════════════════════════════════
-  // SEÇÃO 1 — CABEÇALHO
-  // ══════════════════════════════════════════════════════════════════════════
-
-  const secaoCabecalho = [
-
-    // Linha: plataforma | emissão
-    new Table({
-      width: { size: CONTENT_W, type: WidthType.DXA },
-      columnWidths: [Math.round(CONTENT_W * 0.65), Math.round(CONTENT_W * 0.35)],
-      borders: semBorda(),
-      rows: [
-        new TableRow({
-          children: [
-            // Esquerda: nome plataforma
-            new TableCell({
-              borders: semBorda(),
-              width: { size: Math.round(CONTENT_W * 0.65), type: WidthType.DXA },
-              verticalAlign: VerticalAlign.CENTER,
-              margins: { top: 60, bottom: 60, left: 0, right: 60 },
-              children: [
-                new Paragraph({
-                  children: [
-                    new TextRun({ text: 'NEGÓCIO NA ÁREA', bold: true, size: 22, color: ROXO, font: 'Arial' }),
-                    new TextRun({ text: ' — Relatório Executivo de Desempenho', size: 20, color: MUTED, font: 'Arial' }),
-                  ],
-                }),
-              ],
-            }),
-            // Direita: data
-            new TableCell({
-              borders: semBorda(),
-              width: { size: Math.round(CONTENT_W * 0.35), type: WidthType.DXA },
-              verticalAlign: VerticalAlign.CENTER,
-              margins: { top: 60, bottom: 60, left: 60, right: 0 },
-              children: [
-                new Paragraph({
-                  alignment: AlignmentType.RIGHT,
-                  children: [new TextRun({ text: `Emitido em ${dataEmissao}`, size: 18, color: MUTED, font: 'Arial' })],
-                }),
-              ],
-            }),
-          ],
-        }),
-      ],
-    }),
-
-    linhaDivisoria(ROXO),
-
-    // Nome da empresa
-    new Paragraph({
-      children: [new TextRun({ text: nomeEmpresa, bold: true, size: 36, color: TEXTO, font: 'Arial' })],
-      spacing: { before: 100, after: 80 },
-    }),
-
-    // Período
-    new Paragraph({
-      children: [new TextRun({ text: periodoLabel, size: 20, color: MUTED, font: 'Arial' })],
-      spacing: { after: 320 },
-    }),
-  ];
-
-  // ══════════════════════════════════════════════════════════════════════════
-  // SEÇÃO 2 — RESUMO (cards como tabela 4 colunas)
-  // ══════════════════════════════════════════════════════════════════════════
-
-  const colW = Math.round(CONTENT_W / 4);
-
-  const cardCell = (titulo, valor, nota, corNota) =>
-    new TableCell({
-      borders: bordaCelula(BORDA),
-      width: { size: colW, type: WidthType.DXA },
-      shading: { fill: 'FAFBFF', type: ShadingType.CLEAR },
-      margins: { top: 140, bottom: 140, left: 160, right: 160 },
-      children: [
-        new Paragraph({
-          children: [new TextRun({ text: valor, bold: true, size: 40, color: ROXO, font: 'Arial' })],
-          spacing: { after: 60 },
-        }),
-        new Paragraph({
-          children: [new TextRun({ text: titulo, bold: true, size: 18, color: TEXTO, font: 'Arial' })],
-          spacing: { after: 40 },
-        }),
-        new Paragraph({
-          children: [new TextRun({ text: nota, size: 16, color: corNota || MUTED, font: 'Arial' })],
-        }),
-      ],
-    });
-
-  const variacaoLabel = `${pct(variacao)} vs. mês anterior`;
-  const variacaoCor   = variacao >= 0 ? VERDE : VERMELHO;
-
-  const secaoResumo = [
-    tituloSecao('Resumo do Período'),
-    new Table({
-      width: { size: CONTENT_W, type: WidthType.DXA },
-      columnWidths: [colW, colW, colW, colW],
-      rows: [
-        new TableRow({
-          children: [
-            cardCell('Total de curtidas',       fmt(data.totalCurtidas),        'Todas as publicações',      MUTED),
-            cardCell('Curtidas este mês',        fmt(data.curtidasMesAtual),     variacaoLabel,               variacaoCor),
-            cardCell('Média por publicação',     `${Number(data.mediaPorPublicacao ?? 0).toFixed(1)}`,  'Curtidas por divulgação',   MUTED),
-            cardCell('Bairros alcançados',       String(bairros.length),         `Maior volume: ${bairros[0]?.bairro || '—'}`, MUTED),
-          ],
-        }),
-      ],
-    }),
-    paragrafoVazio(280),
-  ];
-
-  // ══════════════════════════════════════════════════════════════════════════
-  // SEÇÃO 3 — EVOLUÇÃO (gráfico textual)
-  // ══════════════════════════════════════════════════════════════════════════
-
-  // Montar mini-gráfico de barras ASCII em tabela
-  const diasExibir  = porDia.slice(-14); // até 14 dias
-  const maxDia      = Math.max(...diasExibir.map((d) => d.total), 1);
-  const BARRAS      = '█▇▆▅▄▃▂▁';
-  const BAR_LEVELS  = 8;
-
-  function barChar(v, max) {
-    const idx = Math.round((v / max) * (BAR_LEVELS - 1));
-    return BARRAS[BAR_LEVELS - 1 - idx] || '▁';
+function periodoPorExtenso(periodo) {
+  const meses = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho',
+                  'Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+  const agora = new Date();
+  switch (periodo) {
+    case '7dias':  return `Últimos 7 dias — até ${agora.toLocaleDateString('pt-BR')}`;
+    case '30dias': return `Últimos 30 dias — até ${agora.toLocaleDateString('pt-BR')}`;
+    case 'ano':    return `Ano de ${agora.getFullYear()}`;
+    default:       return `${meses[agora.getMonth()]} de ${agora.getFullYear()}`;
   }
-
-  // Montar linha de texto com os dias
-  const linhaDias  = diasExibir.map((d) => {
-    const [, m, dia] = d.data.split('-');
-    return `${dia}/${m}`;
-  }).join('  ');
-
-  const linhaBarras = diasExibir.map((d) => barChar(d.total, maxDia)).join('   ');
-
-  // Texto narrativo do gráfico
-  const maxDiaObj   = porDia.reduce((a, b) => (b.total > a.total ? b : a), porDia[0] || { total: 0, data: '' });
-  const narrativaGrafico = porDia.length
-    ? `Ao longo do período, as curtidas apresentaram crescimento, com pico de ${fmt(maxDiaObj.total)} curtidas no dia ${formatDataBr(maxDiaObj.data)}. O acumulado totalizou ${fmt(data.curtidasMesAtual)} curtidas, representando ${pct(variacao)} frente ao período anterior.`
-    : 'Sem dados suficientes para análise de tendência.';
-
-  const secaoGrafico = [
-    tituloSecao(`Evolução de Curtidas — ${periodoLabel}`),
-
-    // Exibir mini gráfico só se houver dados
-    ...(diasExibir.length ? [
-      new Paragraph({
-        children: [new TextRun({ text: linhaBarras, font: 'Courier New', size: 24, color: ROXO })],
-        spacing: { after: 40 },
-      }),
-      new Paragraph({
-        children: [new TextRun({ text: linhaDias, font: 'Courier New', size: 14, color: MUTED })],
-        spacing: { after: 160 },
-      }),
-    ] : []),
-
-    new Paragraph({
-      children: [new TextRun({ text: narrativaGrafico, size: 20, color: TEXTO, font: 'Arial' })],
-      spacing: { after: 280 },
-    }),
-  ];
-
-  // ══════════════════════════════════════════════════════════════════════════
-  // SEÇÃO 4 — CURTIDAS POR BAIRRO
-  // ══════════════════════════════════════════════════════════════════════════
-
-  const BAIRRO_CORES = [ROXO, '8B5CF6', 'A78BFA', 'C4B5FD', 'DDD6FE', 'EDE9FF'];
-  const BAR_MAX_CHARS = 30;
-
-  function barraTexto(v, max) {
-    const filled = Math.round((v / max) * BAR_MAX_CHARS);
-    return '█'.repeat(filled) + '░'.repeat(BAR_MAX_CHARS - filled);
-  }
-
-  const maxBairro  = Math.max(...bairros.map((b) => b.total), 1);
-  const colB1 = Math.round(CONTENT_W * 0.30);
-  const colB2 = Math.round(CONTENT_W * 0.42);
-  const colB3 = Math.round(CONTENT_W * 0.15);
-  const colB4 = CONTENT_W - colB1 - colB2 - colB3;
-
-  const linhasBairro = bairros.slice(0, 6).map((b, i) => {
-    const pctVal = ((b.total / totalBairros) * 100).toFixed(1);
-    return new TableRow({
-      children: [
-        new TableCell({
-          borders: bordaCelula(BORDA),
-          width: { size: colB1, type: WidthType.DXA },
-          margins: { top: 100, bottom: 100, left: 140, right: 100 },
-          children: [new Paragraph({ children: [new TextRun({ text: b.bairro, bold: true, size: 20, color: TEXTO, font: 'Arial' })] })],
-        }),
-        new TableCell({
-          borders: bordaCelula(BORDA),
-          width: { size: colB2, type: WidthType.DXA },
-          margins: { top: 100, bottom: 100, left: 100, right: 100 },
-          children: [new Paragraph({ children: [new TextRun({ text: barraTexto(b.total, maxBairro), font: 'Courier New', size: 16, color: BAIRRO_CORES[i] || ROXO })] })],
-        }),
-        new TableCell({
-          borders: bordaCelula(BORDA),
-          width: { size: colB3, type: WidthType.DXA },
-          margins: { top: 100, bottom: 100, left: 100, right: 100 },
-          children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: fmt(b.total), bold: true, size: 20, color: ROXO, font: 'Arial' })] })],
-        }),
-        new TableCell({
-          borders: bordaCelula(BORDA),
-          width: { size: colB4, type: WidthType.DXA },
-          margins: { top: 100, bottom: 100, left: 100, right: 140 },
-          children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: `${pctVal}%`, size: 18, color: MUTED, font: 'Arial' })] })],
-        }),
-      ],
-    });
-  });
-
-  // Header da tabela de bairros
-  const headerBairro = new TableRow({
-    tableHeader: true,
-    children: [
-      ['Bairro', colB1], ['Distribuição', colB2], ['Curtidas', colB3], ['%', colB4],
-    ].map(([label, w]) =>
-      new TableCell({
-        borders: bordaCelula(ROXO),
-        width: { size: w, type: WidthType.DXA },
-        shading: { fill: ROXO, type: ShadingType.CLEAR },
-        margins: { top: 100, bottom: 100, left: 140, right: 100 },
-        children: [new Paragraph({ children: [new TextRun({ text: label, bold: true, size: 18, color: 'FFFFFF', font: 'Arial' })] })],
-      })
-    ),
-  });
-
-  const narrativaBairro = bairros.length
-    ? `${bairros[0]?.bairro} lidera com ${fmt(bairros[0]?.total)} curtidas (${((bairros[0]?.total / totalBairros) * 100).toFixed(0)}%) do total. ${bairros.length > 2 ? `${bairros[bairros.length - 1]?.bairro} e ${bairros[bairros.length - 2]?.bairro} representam oportunidades de crescimento com divulgações segmentadas.` : ''}`
-    : 'Nenhum dado de bairro disponível.';
-
-  const secaoBairros = [
-    tituloSecao('Curtidas por Bairro'),
-    new Table({
-      width: { size: CONTENT_W, type: WidthType.DXA },
-      columnWidths: [colB1, colB2, colB3, colB4],
-      rows: [headerBairro, ...linhasBairro],
-    }),
-    paragrafoVazio(120),
-    new Paragraph({
-      children: [new TextRun({ text: narrativaBairro, size: 20, color: TEXTO, font: 'Arial' })],
-      spacing: { after: 280 },
-    }),
-  ];
-
-  // ══════════════════════════════════════════════════════════════════════════
-  // SEÇÃO 5 — DETALHAMENTO POR BAIRRO (tabela detalhada)
-  // ══════════════════════════════════════════════════════════════════════════
-
-  const STATUS_MAP = (i) => {
-    if (i === 0) return '⭐ Principal';
-    if (i === 1) return '🔼 Alto';
-    if (i === 2) return '➡ Médio';
-    return '⚠ A desenvolver';
-  };
-
-  const colD = [
-    Math.round(CONTENT_W * 0.28),
-    Math.round(CONTENT_W * 0.20),
-    Math.round(CONTENT_W * 0.20),
-    CONTENT_W - Math.round(CONTENT_W * 0.28) - Math.round(CONTENT_W * 0.20) - Math.round(CONTENT_W * 0.20),
-  ];
-
-  const headerDetalhe = new TableRow({
-    tableHeader: true,
-    children: [['Bairro', colD[0]], ['Curtidas', colD[1]], ['Participação', colD[2]], ['Status', colD[3]]].map(([label, w]) =>
-      new TableCell({
-        borders: bordaCelula(ROXO),
-        width: { size: w, type: WidthType.DXA },
-        shading: { fill: ROXO, type: ShadingType.CLEAR },
-        margins: { top: 100, bottom: 100, left: 140, right: 100 },
-        children: [new Paragraph({ children: [new TextRun({ text: label, bold: true, size: 18, color: 'FFFFFF', font: 'Arial' })] })],
-      })
-    ),
-  });
-
-  const linhasDetalhe = bairros.map((b, i) => {
-    const pctVal   = ((b.total / totalBairros) * 100).toFixed(1) + '%';
-    const fillCor  = i % 2 === 0 ? 'FAFBFF' : 'FFFFFF';
-    return new TableRow({
-      children: [
-        [b.bairro,        colD[0], true],
-        [fmt(b.total),    colD[1], false],
-        [pctVal,          colD[2], false],
-        [STATUS_MAP(i),   colD[3], false],
-      ].map(([text, w, bold]) =>
-        new TableCell({
-          borders: bordaCelula(BORDA),
-          width: { size: w, type: WidthType.DXA },
-          shading: { fill: fillCor, type: ShadingType.CLEAR },
-          margins: { top: 100, bottom: 100, left: 140, right: 100 },
-          children: [new Paragraph({ children: [new TextRun({ text: String(text), bold, size: 20, color: TEXTO, font: 'Arial' })] })],
-        })
-      ),
-    });
-  });
-
-  const secaoDetalhe = [
-    tituloSecao('Detalhamento por Bairro'),
-    new Table({
-      width: { size: CONTENT_W, type: WidthType.DXA },
-      columnWidths: colD,
-      rows: [headerDetalhe, ...linhasDetalhe],
-    }),
-    paragrafoVazio(280),
-  ];
-
-  // ══════════════════════════════════════════════════════════════════════════
-  // SEÇÃO 6 — COMPORTAMENTO TEMPORAL
-  // ══════════════════════════════════════════════════════════════════════════
-
-  const ORDER_DIA2 = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
-  const mapaSem    = {};
-  porSemana.forEach(({ diaSemana, total }) => { mapaSem[diaSemana] = total; });
-  const dadosDia = ORDER_DIA2.map((d) => ({ label: d, value: mapaSem[d] || 0 }));
-  const maxSem   = Math.max(...dadosDia.map((d) => d.value), 1);
-
-  // Slots de hora agrupados de 3h em 3h
-  const slots    = [0, 3, 6, 9, 12, 15, 18, 21];
-  const dadosHora = slots.map((h) => ({
-    label: `${h}h`,
-    value: (mapaHora[h] || 0) + (mapaHora[h + 1] || 0) + (mapaHora[h + 2] || 0),
-  }));
-  const maxHora  = Math.max(...dadosHora.map((d) => d.value), 1);
-
-  function miniBarTemporal(v, max) {
-    const n = Math.round((v / max) * 8);
-    return '█'.repeat(n) + '░'.repeat(8 - n);
-  }
-
-  // Tabela dias da semana
-  const colT1 = Math.round(CONTENT_W * 0.15);
-  const colT2 = Math.round(CONTENT_W * 0.50);
-  const colT3 = CONTENT_W - colT1 - colT2;
-
-  const linhasDia = dadosDia.map((d) => new TableRow({
-    children: [
-      new TableCell({
-        borders: bordaCelula(BORDA), width: { size: colT1, type: WidthType.DXA },
-        margins: { top: 80, bottom: 80, left: 120, right: 80 },
-        children: [new Paragraph({ children: [new TextRun({ text: d.label, bold: true, size: 18, font: 'Arial', color: TEXTO })] })],
-      }),
-      new TableCell({
-        borders: bordaCelula(BORDA), width: { size: colT2, type: WidthType.DXA },
-        margins: { top: 80, bottom: 80, left: 80, right: 80 },
-        children: [new Paragraph({ children: [new TextRun({ text: miniBarTemporal(d.value, maxSem), font: 'Courier New', size: 18, color: ROXO })] })],
-      }),
-      new TableCell({
-        borders: bordaCelula(BORDA), width: { size: colT3, type: WidthType.DXA },
-        margins: { top: 80, bottom: 80, left: 80, right: 120 },
-        children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: fmt(d.value), bold: true, size: 18, font: 'Arial', color: ROXO })] })],
-      }),
-    ],
-  }));
-
-  const linhasHora = dadosHora.map((d) => new TableRow({
-    children: [
-      new TableCell({
-        borders: bordaCelula(BORDA), width: { size: colT1, type: WidthType.DXA },
-        margins: { top: 80, bottom: 80, left: 120, right: 80 },
-        children: [new Paragraph({ children: [new TextRun({ text: d.label, bold: true, size: 18, font: 'Arial', color: TEXTO })] })],
-      }),
-      new TableCell({
-        borders: bordaCelula(BORDA), width: { size: colT2, type: WidthType.DXA },
-        margins: { top: 80, bottom: 80, left: 80, right: 80 },
-        children: [new Paragraph({ children: [new TextRun({ text: miniBarTemporal(d.value, maxHora), font: 'Courier New', size: 18, color: ROXO })] })],
-      }),
-      new TableCell({
-        borders: bordaCelula(BORDA), width: { size: colT3, type: WidthType.DXA },
-        margins: { top: 80, bottom: 80, left: 80, right: 120 },
-        children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: fmt(d.value), bold: true, size: 18, font: 'Arial', color: ROXO })] })],
-      }),
-    ],
-  }));
-
-  const notasSemana = peakDia
-    ? `${peakDia.diaSemana}feira é o dia de maior engajamento com ${fmt(peakDia.total)} curtidas.`
-    : '';
-  const notasHora = peakHora
-    ? `Pico de curtidas às ${peakHora.hora}h. Publicações nesse intervalo recebem em média mais interações que a média do dia.`
-    : '';
-
-  const secaoTemporal = [
-    tituloSecao('Comportamento Temporal'),
-
-    new Paragraph({
-      children: [new TextRun({ text: 'Curtidas por dia da semana', bold: true, size: 22, color: TEXTO, font: 'Arial' })],
-      spacing: { before: 160, after: 100 },
-    }),
-    new Table({
-      width: { size: CONTENT_W, type: WidthType.DXA },
-      columnWidths: [colT1, colT2, colT3],
-      rows: linhasDia,
-    }),
-    paragrafoVazio(80),
-    ...(notasSemana ? [new Paragraph({ children: [new TextRun({ text: notasSemana, size: 18, color: MUTED, font: 'Arial', italics: true })], spacing: { after: 200 } })] : []),
-
-    new Paragraph({
-      children: [new TextRun({ text: 'Curtidas por horário', bold: true, size: 22, color: TEXTO, font: 'Arial' })],
-      spacing: { before: 200, after: 100 },
-    }),
-    new Table({
-      width: { size: CONTENT_W, type: WidthType.DXA },
-      columnWidths: [colT1, colT2, colT3],
-      rows: linhasHora,
-    }),
-    paragrafoVazio(80),
-    ...(notasHora ? [new Paragraph({ children: [new TextRun({ text: notasHora, size: 18, color: MUTED, font: 'Arial', italics: true })], spacing: { after: 280 } })] : []),
-  ];
-
-  // ══════════════════════════════════════════════════════════════════════════
-  // SEÇÃO 7 — RECOMENDAÇÕES
-  // ══════════════════════════════════════════════════════════════════════════
-
-  const recomendacoes = gerarRecomendacoes(data, peakHora, peakDia, bairros);
-
-  const colR1 = Math.round(CONTENT_W * 0.10);
-  const colR2 = CONTENT_W - colR1;
-
-  const secaoRecomendacoes = [
-    tituloSecao('Recomendações'),
-    ...recomendacoes.map((rec, i) =>
-      new Table({
-        width: { size: CONTENT_W, type: WidthType.DXA },
-        columnWidths: [colR1, colR2],
-        borders: semBorda(),
-        rows: [
-          new TableRow({
-            children: [
-              new TableCell({
-                borders: semBorda(),
-                width: { size: colR1, type: WidthType.DXA },
-                shading: { fill: ROXO, type: ShadingType.CLEAR },
-                margins: { top: 120, bottom: 120, left: 140, right: 100 },
-                children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: `0${i + 1}`, bold: true, size: 28, color: 'FFFFFF', font: 'Arial' })] })],
-              }),
-              new TableCell({
-                borders: semBorda(),
-                width: { size: colR2, type: WidthType.DXA },
-                margins: { top: 120, bottom: 120, left: 160, right: 0 },
-                children: [new Paragraph({ children: [new TextRun({ text: rec, size: 20, color: TEXTO, font: 'Arial' })] })],
-              }),
-            ],
-          }),
-        ],
-      })
-    ),
-    paragrafoVazio(200),
-  ];
-
-  // ══════════════════════════════════════════════════════════════════════════
-  // RODAPÉ
-  // ══════════════════════════════════════════════════════════════════════════
-
-  const secaoRodape = [
-    linhaDivisoria(BORDA),
-    new Paragraph({
-      children: [new TextRun({ text: `Este relatório foi gerado automaticamente pela plataforma Negócio na Área com base nos dados de curtidas registrados no período indicado.`, size: 16, color: MUTED, font: 'Arial' })],
-      spacing: { after: 120 },
-    }),
-    new Paragraph({
-      children: [
-        new TextRun({ text: 'Negócio na Área — Relatório Confidencial', size: 16, color: MUTED, font: 'Arial', bold: true }),
-        new TextRun({ text: '                                    Página 1', size: 16, color: MUTED, font: 'Arial' }),
-      ],
-    }),
-  ];
-
-  // ══════════════════════════════════════════════════════════════════════════
-  // MONTAR DOCUMENTO
-  // ══════════════════════════════════════════════════════════════════════════
-
-  const document = new Document({
-    styles: {
-      default: {
-        document: { run: { font: 'Arial', size: 22, color: TEXTO } },
-      },
-    },
-    sections: [{
-      properties: {
-        page: {
-          size: { width: PAGE_W, height: PAGE_H },
-          margin: { top: MARGIN, right: MARGIN, bottom: MARGIN, left: MARGIN },
-        },
-      },
-      children: [
-        ...secaoCabecalho,
-        ...secaoResumo,
-        ...secaoGrafico,
-        ...secaoBairros,
-        ...secaoDetalhe,
-        ...secaoTemporal,
-        ...secaoRecomendacoes,
-        ...secaoRodape,
-      ],
-    }],
-  });
-
-  return document;
 }
-
-// ── Recomendações dinâmicas ───────────────────────────────────────────────────
 
 function gerarRecomendacoes(data, peakHora, peakDia, bairros) {
   const recs = [];
@@ -613,60 +36,428 @@ function gerarRecomendacoes(data, peakHora, peakDia, bairros) {
   } else if (peakHora) {
     recs.push(`Publicar próximo às ${peakHora.hora}h para atingir o horário de pico de engajamento.`);
   }
-
   if (bairros.length > 2) {
-    const menores = bairros.slice(-2).map((b) => b.bairro).join(' e ');
+    const menores = bairros.slice(-2).map(b => b.bairro).join(' e ');
     recs.push(`Criar divulgações segmentadas para ${menores}, bairros com menor alcance atual.`);
   }
-
   if (v > 0) {
-    recs.push(`Manter a frequência e qualidade de postagens que gerou crescimento de ${v.toFixed(1)}% no período.`);
+    recs.push(`Manter a frequência que gerou crescimento de ${v.toFixed(1)}% no período.`);
   } else if (v < 0) {
-    recs.push(`Aumentar a frequência de publicações para reverter a queda de ${Math.abs(v).toFixed(1)}% em relação ao período anterior.`);
+    recs.push(`Aumentar a frequência de publicações para reverter a queda de ${Math.abs(v).toFixed(1)}%.`);
   }
-
   if (data.publicacaoMaisCurtida && data.publicacaoMaisCurtida !== '—') {
     recs.push(`Produzir mais conteúdo semelhante a "${data.publicacaoMaisCurtida}", sua publicação com maior engajamento.`);
   }
-
-  // Garantir pelo menos 3 recomendações
-  if (recs.length < 3) {
-    recs.push('Diversificar os tipos de publicação (promoções, novidades, bastidores) para ampliar o alcance.');
-  }
-
+  if (recs.length < 3) recs.push('Diversificar os tipos de publicação (promoções, novidades, bastidores) para ampliar o alcance.');
   return recs;
 }
 
-// ── Download ──────────────────────────────────────────────────────────────────
+// ── Construir HTML do relatório ───────────────────────────────────────────────
+
+function buildRelatorioHTML(data, nomeEmpresa, periodoLabel) {
+  const variacao      = data.variacaoPercentual ?? 0;
+  const bairros       = data.curtidasPorBairro   || [];
+  const porDia        = data.curtidasPorDia       || [];
+  const porHora       = data.curtidasPorHora      || [];
+  const porSemana     = data.curtidasPorDiaSemana || [];
+  const totalBairros  = bairros.reduce((s, b) => s + b.total, 0) || 1;
+  const dataEmissao   = new Date().toLocaleDateString('pt-BR');
+
+  const mapaHora = {};
+  porHora.forEach(({ hora, total }) => { mapaHora[hora] = total; });
+
+  const peakHora = porHora.length ? porHora.reduce((a, b) => b.total > a.total ? b : a) : null;
+  const peakDia  = porSemana.length ? porSemana.reduce((a, b) => b.total > a.total ? b : a) : null;
+
+  const variacaoCor  = variacao >= 0 ? '#22c55e' : '#ec4899';
+  const variacaoSeta = variacao >= 0 ? '↑' : '↓';
+
+  // ── Cards ─────────────────────────────────────────────────────────────────
+
+  const cards = [
+    { valor: fmt(data.totalCurtidas),        label: 'Total de curtidas',      sub: 'Todas as publicações' },
+    { valor: fmt(data.curtidasMesAtual),     label: 'Curtidas este mês',      sub: `${variacaoSeta} ${pct(variacao)} vs. mês anterior`, subCor: variacaoCor },
+    { valor: Number(data.mediaPorPublicacao ?? 0).toFixed(1), label: 'Média por publicação', sub: 'Curtidas por divulgação' },
+    { valor: String(bairros.length),         label: 'Bairros alcançados',     sub: bairros[0] ? `Maior volume: ${bairros[0].bairro}` : '—' },
+  ].map(c => `
+    <div class="card">
+      <div class="card-valor">${c.valor}</div>
+      <div class="card-label">${c.label}</div>
+      <div class="card-sub" ${c.subCor ? `style="color:${c.subCor};font-weight:700"` : ''}>${c.sub}</div>
+    </div>
+  `).join('');
+
+  // ── Gráfico de barras (curtidas por dia) ──────────────────────────────────
+
+  const diasExibir = porDia.slice(-20);
+  const maxDia     = Math.max(...diasExibir.map(d => d.total), 1);
+
+  const barrasDia = diasExibir.map(d => {
+    const h = Math.max(Math.round((d.total / maxDia) * 120), 4);
+    return `
+      <div class="bar-col">
+        <div class="bar-tooltip">${d.total}</div>
+        <div class="bar-fill" style="height:${h}px"></div>
+        <div class="bar-x">${formatDataBr(d.data)}</div>
+      </div>
+    `;
+  }).join('');
+
+  const maxDiaObj = porDia.length ? porDia.reduce((a, b) => b.total > a.total ? b : a) : null;
+  const narrativaGrafico = maxDiaObj
+    ? `Acumulado de ${fmt(data.curtidasMesAtual)} curtidas no período, com pico de ${fmt(maxDiaObj.total)} curtidas em ${formatDataBr(maxDiaObj.data)}. Variação de ${pct(variacao)} frente ao período anterior.`
+    : 'Sem dados suficientes para análise de tendência.';
+
+  // ── Bairros ───────────────────────────────────────────────────────────────
+
+  const BAIRRO_CORES = ['#6b4ce6','#8b5cf6','#a78bfa','#c4b5fd','#ddd6fe','#ede9ff'];
+  const maxBairro    = Math.max(...bairros.map(b => b.total), 1);
+
+  const linhasBairro = bairros.slice(0, 6).map((b, i) => {
+    const w   = Math.round((b.total / maxBairro) * 100);
+    const cor = BAIRRO_CORES[i] || '#6b4ce6';
+    return `
+      <div class="bairro-row">
+        <div class="bairro-nome">${b.bairro}</div>
+        <div class="bairro-bar-wrap">
+          <div class="bairro-bar" style="width:${w}%;background:${cor}"></div>
+        </div>
+        <div class="bairro-num">${fmt(b.total)}</div>
+        <div class="bairro-pct">${((b.total / totalBairros) * 100).toFixed(1)}%</div>
+      </div>
+    `;
+  }).join('');
+
+  const narrativaBairro = bairros.length
+    ? `${bairros[0]?.bairro} lidera com ${fmt(bairros[0]?.total)} curtidas (${((bairros[0]?.total / totalBairros) * 100).toFixed(0)}%) do total.${bairros.length > 2 ? ` ${bairros[bairros.length - 1]?.bairro} e ${bairros[bairros.length - 2]?.bairro} representam oportunidades de crescimento.` : ''}`
+    : 'Nenhum dado de bairro disponível.';
+
+  // ── Tabela detalhada de bairros ───────────────────────────────────────────
+
+  const STATUS = (i) => ['⭐ Principal','🔼 Alto','➡ Médio','⚠ A desenvolver'][Math.min(i, 3)];
+
+  const linhasTabela = bairros.map((b, i) => `
+    <tr class="${i % 2 === 0 ? 'tr-par' : ''}">
+      <td><strong>${b.bairro}</strong></td>
+      <td>${fmt(b.total)}</td>
+      <td>${((b.total / totalBairros) * 100).toFixed(1)}%</td>
+      <td>${STATUS(i)}</td>
+    </tr>
+  `).join('');
+
+  // ── Comportamento temporal ────────────────────────────────────────────────
+
+  const ORDER_DIA = ['Seg','Ter','Qua','Qui','Sex','Sáb','Dom'];
+  const mapaSem   = {};
+  porSemana.forEach(({ diaSemana, total }) => { mapaSem[diaSemana] = total; });
+  const dadosDia  = ORDER_DIA.map(d => ({ label: d, value: mapaSem[d] || 0 }));
+  const maxSem    = Math.max(...dadosDia.map(d => d.value), 1);
+
+  const barrasSemana = dadosDia.map(d => {
+    const h = Math.max(Math.round((d.value / maxSem) * 80), 2);
+    return `
+      <div class="bar-col">
+        <div class="bar-tooltip">${d.value}</div>
+        <div class="bar-fill bar-semana" style="height:${h}px"></div>
+        <div class="bar-x">${d.label}</div>
+      </div>
+    `;
+  }).join('');
+
+  const slots     = [0, 3, 6, 9, 12, 15, 18, 21];
+  const dadosHora = slots.map(h => ({
+    label: `${h}h`,
+    value: (mapaHora[h] || 0) + (mapaHora[h+1] || 0) + (mapaHora[h+2] || 0),
+  }));
+  const maxHoraV  = Math.max(...dadosHora.map(d => d.value), 1);
+
+  const barrasHora = dadosHora.map(d => {
+    const h = Math.max(Math.round((d.value / maxHoraV) * 80), 2);
+    return `
+      <div class="bar-col">
+        <div class="bar-tooltip">${d.value}</div>
+        <div class="bar-fill" style="height:${h}px"></div>
+        <div class="bar-x">${d.label}</div>
+      </div>
+    `;
+  }).join('');
+
+  const notaSemana = peakDia  ? `★ ${peakDia.diaSemana}feira é o dia de maior engajamento com ${fmt(peakDia.total)} curtidas.` : '';
+  const notaHora   = peakHora ? `★ Pico de curtidas entre ${peakHora.hora}h e ${peakHora.hora + 1}h. Publicações nesse intervalo recebem mais interações.` : '';
+
+  // ── Recomendações ─────────────────────────────────────────────────────────
+
+  const recs = gerarRecomendacoes(data, peakHora, peakDia, bairros);
+  const linhasRec = recs.map((r, i) => `
+    <div class="rec-row">
+      <div class="rec-num">0${i + 1}</div>
+      <div class="rec-text">${r}</div>
+    </div>
+  `).join('');
+
+  // ── HTML completo ─────────────────────────────────────────────────────────
+
+  return `
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', Arial, sans-serif;
+    font-size: 13px;
+    color: #0f1221;
+    background: #fff;
+    width: 794px;
+    padding: 40px 48px;
+  }
+
+  /* CABEÇALHO */
+  .cabecalho {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 6px;
+  }
+  .cab-esq { display: flex; flex-direction: column; gap: 2px; }
+  .cab-plataforma { font-size: 11px; font-weight: 700; color: #6b4ce6; letter-spacing: .08em; text-transform: uppercase; }
+  .cab-titulo { font-size: 13px; color: #6b7494; }
+  .cab-emitido { font-size: 11px; color: #6b7494; margin-top: 2px; }
+  .divider { border: none; border-top: 3px solid #6b4ce6; margin: 10px 0 16px; }
+  .empresa-nome { font-size: 26px; font-weight: 800; letter-spacing: -.02em; color: #0f1221; }
+  .empresa-periodo { font-size: 13px; color: #6b7494; margin-top: 4px; margin-bottom: 28px; }
+
+  /* SEÇÃO */
+  .section-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: #6b4ce6;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    border-bottom: 2px solid #ede9ff;
+    padding-bottom: 6px;
+    margin-bottom: 14px;
+    margin-top: 28px;
+  }
+
+  /* CARDS */
+  .cards { display: flex; gap: 10px; margin-bottom: 4px; }
+  .card {
+    flex: 1;
+    border: 1.5px solid #e8eaf4;
+    border-radius: 10px;
+    padding: 14px 14px 12px;
+    background: #fafbff;
+  }
+  .card-valor { font-size: 26px; font-weight: 800; color: #6b4ce6; letter-spacing: -.02em; line-height: 1.1; }
+  .card-label { font-size: 11px; font-weight: 700; color: #0f1221; margin-top: 5px; }
+  .card-sub   { font-size: 11px; color: #6b7494; margin-top: 3px; }
+
+  /* GRÁFICO DE LINHA (barras verticais) */
+  .bar-area {
+    display: flex;
+    align-items: flex-end;
+    gap: 3px;
+    height: 140px;
+    padding-bottom: 22px;
+    border-bottom: 1.5px solid #e8eaf4;
+    position: relative;
+    margin-bottom: 8px;
+  }
+  .bar-col { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; flex: 1; gap: 4px; position: relative; }
+  .bar-fill { width: 100%; background: #6b4ce6; border-radius: 3px 3px 0 0; min-height: 3px; opacity: .85; }
+  .bar-semana { background: #8b5cf6; }
+  .bar-x { font-size: 9px; color: #6b7494; white-space: nowrap; }
+  .bar-tooltip { font-size: 9px; color: #6b4ce6; font-weight: 700; }
+  .chart-note { font-size: 11px; color: #6b7494; margin-top: 4px; line-height: 1.5; }
+
+  /* BAIRROS */
+  .bairro-row { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+  .bairro-nome { font-size: 12px; font-weight: 600; width: 110px; flex-shrink: 0; }
+  .bairro-bar-wrap { flex: 1; height: 10px; background: #ede9ff; border-radius: 99px; overflow: hidden; }
+  .bairro-bar { height: 100%; border-radius: 99px; }
+  .bairro-num { font-size: 12px; font-weight: 700; color: #6b4ce6; width: 46px; text-align: right; flex-shrink: 0; }
+  .bairro-pct { font-size: 11px; color: #6b7494; width: 38px; text-align: right; flex-shrink: 0; }
+  .bairro-note { font-size: 11px; color: #6b7494; margin-top: 10px; line-height: 1.5; }
+
+  /* TABELA */
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  th {
+    background: #6b4ce6;
+    color: #fff;
+    font-weight: 700;
+    padding: 8px 12px;
+    text-align: left;
+    font-size: 11px;
+    letter-spacing: .04em;
+  }
+  td { padding: 8px 12px; border-bottom: 1px solid #e8eaf4; }
+  .tr-par td { background: #fafbff; }
+
+  /* TEMPORAL */
+  .temporal-grid { display: flex; gap: 28px; }
+  .temporal-block { flex: 1; }
+  .temporal-sub { font-size: 12px; font-weight: 700; color: #0f1221; margin-bottom: 10px; }
+  .temporal-note { font-size: 11px; color: #6b7494; margin-top: 8px; line-height: 1.5; }
+
+  /* RECOMENDAÇÕES */
+  .rec-row { display: flex; gap: 14px; align-items: flex-start; margin-bottom: 12px; }
+  .rec-num {
+    min-width: 34px; height: 34px;
+    background: #6b4ce6;
+    color: #fff;
+    font-size: 14px;
+    font-weight: 800;
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .rec-text { font-size: 13px; color: #0f1221; padding-top: 7px; line-height: 1.5; }
+
+  /* RODAPÉ */
+  .rodape {
+    margin-top: 32px;
+    border-top: 1.5px solid #e8eaf4;
+    padding-top: 12px;
+    display: flex;
+    justify-content: space-between;
+    font-size: 10px;
+    color: #6b7494;
+  }
+</style>
+</head>
+<body>
+
+  <!-- CABEÇALHO -->
+  <div class="cabecalho">
+    <div class="cab-esq">
+      <div class="cab-plataforma">Negócio na Área</div>
+      <div class="cab-titulo">Relatório Executivo de Desempenho</div>
+    </div>
+    <div class="cab-emitido">Emitido em ${dataEmissao}</div>
+  </div>
+  <hr class="divider"/>
+  <div class="empresa-nome">${nomeEmpresa}</div>
+  <div class="empresa-periodo">Análise de curtidas — ${periodoLabel}</div>
+
+  <!-- RESUMO -->
+  <div class="section-title">Resumo do Período</div>
+  <div class="cards">${cards}</div>
+
+  <!-- EVOLUÇÃO -->
+  <div class="section-title">Evolução de Curtidas — ${periodoLabel}</div>
+  ${porDia.length ? `<div class="bar-area">${barrasDia}</div>` : '<p class="chart-note">Sem dados no período.</p>'}
+  <p class="chart-note">${narrativaGrafico}</p>
+
+  <!-- BAIRROS -->
+  <div class="section-title">Curtidas por Bairro</div>
+  ${linhasBairro || '<p class="chart-note">Sem dados de bairro.</p>'}
+  <p class="bairro-note">${narrativaBairro}</p>
+
+  <!-- TABELA DETALHADA -->
+  <div class="section-title">Detalhamento por Bairro</div>
+  <table>
+    <thead><tr><th>Bairro</th><th>Curtidas</th><th>Participação</th><th>Status</th></tr></thead>
+    <tbody>${linhasTabela || '<tr><td colspan="4">Sem dados.</td></tr>'}</tbody>
+  </table>
+
+  <!-- COMPORTAMENTO TEMPORAL -->
+  <div class="section-title">Comportamento Temporal</div>
+  <div class="temporal-grid">
+    <div class="temporal-block">
+      <div class="temporal-sub">Curtidas por dia da semana</div>
+      <div class="bar-area" style="height:110px">${barrasSemana}</div>
+      ${notaSemana ? `<p class="temporal-note">${notaSemana}</p>` : ''}
+    </div>
+    <div class="temporal-block">
+      <div class="temporal-sub">Curtidas por horário</div>
+      <div class="bar-area" style="height:110px">${barrasHora}</div>
+      ${notaHora ? `<p class="temporal-note">${notaHora}</p>` : ''}
+    </div>
+  </div>
+
+  <!-- RECOMENDAÇÕES -->
+  <div class="section-title">Recomendações</div>
+  ${linhasRec}
+
+  <!-- RODAPÉ -->
+  <div class="rodape">
+    <span>Este relatório foi gerado automaticamente pela plataforma <strong>Negócio na Área</strong>.</span>
+    <span>Relatório Confidencial · Página 1</span>
+  </div>
+
+</body>
+</html>
+  `;
+}
+
+// ── Gerar e baixar PDF ────────────────────────────────────────────────────────
 
 async function baixarRelatorio(analyticsData, nomeEmpresa, periodoLabel) {
   const btn = document.getElementById('printReport');
-  if (btn) { btn.textContent = '⏳ Gerando…'; btn.disabled = true; }
+  if (btn) { btn.textContent = '⏳ Gerando PDF…'; btn.disabled = true; }
 
   try {
-    const doc  = await gerarRelatorioDocx(analyticsData, nomeEmpresa, periodoLabel);
-    const blob = await resolverDocx().Packer.toBlob(doc);
-    const url  = URL.createObjectURL(blob);
-    const a    = document.createElement('a');
+    const html = buildRelatorioHTML(analyticsData, nomeEmpresa, periodoLabel);
+
+    // Criar iframe oculto para renderizar o HTML
+    const iframe = document.createElement('iframe');
+    iframe.style.cssText = 'position:fixed;left:-9999px;top:-9999px;width:794px;height:1123px;border:none;visibility:hidden;';
+    document.body.appendChild(iframe);
+
+    await new Promise((resolve) => {
+      iframe.onload = resolve;
+      iframe.srcdoc = html;
+    });
+
+    // Aguardar renderização
+    await new Promise(r => setTimeout(r, 600));
+
+    const iframeDoc  = iframe.contentDocument || iframe.contentWindow.document;
+    const iframeBody = iframeDoc.body;
+
+    // Capturar com html2canvas
+    const canvas = await html2canvas(iframeBody, {
+      scale:           2,
+      useCORS:         true,
+      backgroundColor: '#ffffff',
+      width:           794,
+      windowWidth:     794,
+    });
+
+    document.body.removeChild(iframe);
+
+    // Gerar PDF com jsPDF
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+
+    const A4_W    = 210;
+    const A4_H    = 297;
+    const imgW    = A4_W;
+    const imgH    = (canvas.height / canvas.width) * imgW;
+
+    const imgData = canvas.toDataURL('image/jpeg', 0.95);
+
+    // Se o conteúdo for maior que uma página, quebra em páginas
+    if (imgH <= A4_H) {
+      pdf.addImage(imgData, 'JPEG', 0, 0, imgW, imgH);
+    } else {
+      let posY = 0;
+      while (posY < imgH) {
+        if (posY > 0) pdf.addPage();
+        pdf.addImage(imgData, 'JPEG', 0, -posY, imgW, imgH);
+        posY += A4_H;
+      }
+    }
+
     const safe = nomeEmpresa.replace(/[^a-z0-9]/gi, '_').toLowerCase();
-    a.href     = url;
-    a.download = `relatorio_${safe}_${new Date().toISOString().slice(0, 10)}.docx`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
+    pdf.save(`relatorio_${safe}_${new Date().toISOString().slice(0, 10)}.pdf`);
+
   } catch (err) {
-    console.error('Erro ao gerar relatório:', err);
-    alert('Erro ao gerar o relatório. Verifique o console.');
+    console.error('Erro ao gerar PDF:', err);
+    alert('Erro ao gerar o PDF: ' + err.message);
   } finally {
     if (btn) { btn.textContent = '▣ Imprimir relatório'; btn.disabled = false; }
   }
-}
-
-// ── Utilitário ────────────────────────────────────────────────────────────────
-
-function formatDataBr(iso) {
-  if (!iso) return '';
-  const [, m, d] = iso.split('-');
-  return `${d}/${m}`;
 }
