@@ -86,7 +86,12 @@ document.getElementById('chartGranularity').addEventListener('change', (e) => {
 
 document.getElementById('retryBtn').addEventListener('click', loadDashboard);
 
-document.getElementById('printReport').addEventListener('click', () => window.print());
+document.getElementById('printReport').addEventListener('click', () => {
+  if (!analyticsData) return;
+  const nome  = localStorage.getItem('empresa_nome') || 'Empresa';
+  const label = periodoPorExtenso(currentPeriodo);
+  baixarRelatorio(analyticsData, nome, label);
+});
 
 window.addEventListener('resize', () => {
   if (analyticsData) drawLineChart(analyticsData.curtidasPorDia, currentGranularity);
@@ -433,3 +438,15 @@ window.addEventListener('sessionExpired', () => {
 (function init() {
   loadDashboard();
 })();
+// ── Período por extenso (usado ao gerar o .docx) ──────────────────────────────
+function periodoPorExtenso(periodo) {
+  const meses = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho',
+                  'Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+  const agora = new Date();
+  switch (periodo) {
+    case '7dias':  return `Últimos 7 dias — até ${agora.toLocaleDateString('pt-BR')}`;
+    case '30dias': return `Últimos 30 dias — até ${agora.toLocaleDateString('pt-BR')}`;
+    case 'ano':    return `Ano de ${agora.getFullYear()}`;
+    default:       return `Análise de curtidas — ${meses[agora.getMonth()]} de ${agora.getFullYear()}`;
+  }
+}
