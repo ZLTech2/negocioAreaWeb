@@ -365,11 +365,13 @@ function renderHourChart(porHora) {
 // ── Gráfico de dias da semana ─────────────────────────────────────────────────
 
 function renderWeekChart(porDiaSemana) {
-  const ORDER = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
+  const ABREV  = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
+  const NOMES  = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo'];
+
   const mapa  = {};
   porDiaSemana.forEach(({ diaSemana, total }) => { mapa[diaSemana] = total; });
 
-  const data = ORDER.map((d) => ({ label: d, value: mapa[d] || 0 }));
+  const data = ABREV.map((abrev, i) => ({ label: NOMES[i], value: mapa[abrev] || 0 }));
   renderBarChart(weekChartEl, data, weekHighlight);
 }
 
