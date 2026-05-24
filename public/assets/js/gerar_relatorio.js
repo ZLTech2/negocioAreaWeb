@@ -1,16 +1,24 @@
 /**
  * gerar_relatorio.js
  * Gera o relatório executivo .docx com os dados reais da API.
- * Depende da biblioteca docx carregada via CDN (docx.min.js).
+ * Depende da biblioteca docx carregada via CDN (UMD build).
  */
 
+// Resolve o namespace docx independente de como o CDN o expõe
+function resolverDocx() {
+  if (typeof window !== 'undefined' && window.docx) return window.docx;
+  if (typeof self !== 'undefined' && self.docx) return self.docx;
+  throw new Error('Biblioteca docx não carregada. Verifique a tag <script> do CDN no HTML.');
+}
+
 async function gerarRelatorioDocx(analyticsData, nomeEmpresa, periodoLabel) {
+  const docxLib = resolverDocx();
   const {
     Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell,
     AlignmentType, BorderStyle, WidthType, ShadingType, VerticalAlign,
     HeadingLevel, TabStopType, TabStopPosition, LevelFormat,
     PageNumber, NumberFormat,
-  } = docx;
+  } = docxLib;
 
   // ── Cores e constantes ────────────────────────────────────────────────────
 
@@ -637,7 +645,7 @@ async function baixarRelatorio(analyticsData, nomeEmpresa, periodoLabel) {
 
   try {
     const doc  = await gerarRelatorioDocx(analyticsData, nomeEmpresa, periodoLabel);
-    const blob = await docx.Packer.toBlob(doc);
+    const blob = await resolverDocx().Packer.toBlob(doc);
     const url  = URL.createObjectURL(blob);
     const a    = document.createElement('a');
     const safe = nomeEmpresa.replace(/[^a-z0-9]/gi, '_').toLowerCase();
