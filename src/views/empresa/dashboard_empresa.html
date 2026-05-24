@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Relatório de Curtidas — Negócio na Área</title>
+    <!-- CSS do relatório (copiado de negocioAreaWeb/css/style.css) -->
+    <link rel="stylesheet" href="../../../public/assets/css/dashboard-relatorio.css" />
+    <style>
+        /* ── Proteção de rota: redireciona se não houver token ── */
+        /* Feito via JS logo abaixo, mas ocultamos o conteúdo até confirmar */
+        body { visibility: hidden; }
+
+        /* ── Barra de topo com logout ──────────────────────────── */
+        .dash-topbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 24px;
+            background: var(--card);
+            border-bottom: 1px solid var(--line);
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            box-shadow: var(--shadow-sm);
+        }
+        .dash-topbar-brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 700;
+            font-size: 15px;
+            color: var(--purple);
+        }
+        .dash-topbar-brand img {
+            width: 30px;
+            height: 30px;
+            object-fit: contain;
+            border-radius: 8px;
+            background: var(--purple-light);
+            padding: 4px;
+        }
+        #logoutBtn {
+            padding: 8px 16px;
+            background: var(--bg);
+            border: 1.5px solid var(--line);
+            border-radius: var(--radius-sm);
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--muted);
+            cursor: pointer;
+            transition: border-color 0.2s, color 0.2s;
+        }
+        #logoutBtn:hover {
+            border-color: #ec4899;
+            color: #ec4899;
+        }
+
+        /* ── Estados loading / erro ────────────────────────────── */
+        #loadingState,
+        #errorState {
+            display: none;
+            align-items: center;
+            justify-content: center;
+            min-height: 55vh;
+            flex-direction: column;
+            gap: 16px;
+            color: var(--muted);
+        }
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid var(--line);
+            border-top-color: var(--purple);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        #errorState .error-icon { font-size: 36px; }
+        #errorMsg { font-size: 14px; text-align: center; max-width: 360px; }
+        #retryBtn {
+            padding: 10px 20px;
+            background: var(--purple);
+            color: #fff;
+            border: none;
+            border-radius: var(--radius-sm);
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        #retryBtn:hover { background: var(--purple-dark); }
+    </style>
+</head>
+
+<body>
+
+    <!-- Proteção de rota: se não houver token, volta para o login -->
+    <script>
+        (function () {
+            var token = localStorage.getItem('empresa_token');
+            if (!token) {
+                window.location.replace('../login.html');
+            } else {
+                document.body.style.visibility = 'visible';
+            }
+        })();
+    </script>
+
+    <!-- Barra de topo -->
+    <div class="dash-topbar">
+        <div class="dash-topbar-brand">
+            <img src="../../../public/assets/images/logo rd (1).png" alt="Logo" />
+            Negócio na Área
+        </div>
+        <button id="logoutBtn" type="button">Sair</button>
+    </div>
+
+    <main class="dashboard">
+
+        <!-- HEADER DO RELATÓRIO -->
+        <header class="header">
+            <div class="title-area">
+                <div class="brand-area">
+                    <img
+                        id="platformLogo"
+                        src="../../../public/assets/images/logo rd (1).png"
+                        alt="Logo da plataforma"
+                    />
+                    <div class="brand-text">
+                        <div class="brand-line">
+                            <span>PLATAFORMA</span>
+                            <strong id="platformName">Negócio na Área</strong>
+                        </div>
+                    </div>
+                </div>
+
+                <h1 class="report-title">
+                    Relatório de Curtidas —
+                    <strong id="businessName">Carregando…</strong>
+                </h1>
+
+                <p class="subtitle">
+                    Acompanhe o desempenho das suas divulgações.
+                </p>
+            </div>
+
+            <div class="header-actions">
+                <button class="print-button" id="printReport" type="button">
+                    <span class="button-icon">▣</span>
+                    Imprimir relatório
+                </button>
+
+                <div class="filters">
+                    <label class="field">
+                        <select id="periodFilter">
+                            <option value="mes">Este mês</option>
+                            <option value="semana">Últimos 7 dias</option>
+                            <option value="30dias">Últimos 30 dias</option>
+                            <option value="ano">Este ano</option>
+                        </select>
+                    </label>
+                </div>
+            </div>
+        </header>
+
+        <!-- ESTADOS -->
+        <div id="loadingState">
+            <div class="spinner"></div>
+            <p>Carregando seus dados…</p>
+        </div>
+
+        <div id="errorState">
+            <span class="error-icon">⚠️</span>
+            <p id="errorMsg">Erro ao carregar dados.</p>
+            <button id="retryBtn" type="button">Tentar novamente</button>
+        </div>
+
+        <!-- CONTEÚDO DO DASHBOARD -->
+        <div id="dashContent" style="display:none;">
+
+            <!-- CARDS -->
+            <section class="metric-grid" id="metricCards" aria-label="Resumo de curtidas"></section>
+
+            <!-- GRÁFICO + BAIRROS -->
+            <section class="main-grid">
+
+                <article class="panel chart-panel">
+                    <div class="panel-header">
+                        <h2>Curtidas ao longo do tempo</h2>
+                        <select id="chartGranularity">
+                            <option value="diario">Diário</option>
+                            <option value="semanal">Semanal</option>
+                            <option value="mensal">Mensal</option>
+                        </select>
+                    </div>
+                    <div class="line-chart-wrap">
+                        <canvas id="likesLineChart" width="900" height="420"></canvas>
+                    </div>
+                </article>
+
+                <article class="panel">
+                    <div class="panel-header">
+                        <h2>Curtidas por bairro</h2>
+                    </div>
+                    <div class="top-posts" id="topBairros"></div>
+                </article>
+
+            </section>
+
+            <!-- BOTTOM -->
+            <section class="bottom-grid">
+
+                <article class="panel compact-panel">
+                    <div class="panel-title-icon">
+                        <span class="mini-icon outline">◷</span>
+                        <h2>Horários com mais curtidas</h2>
+                    </div>
+                    <div class="bar-chart" id="hourChart"></div>
+                    <p class="highlight" id="hourHighlight">★ Carregando…</p>
+                </article>
+
+                <article class="panel compact-panel">
+                    <div class="panel-title-icon">
+                        <span class="mini-icon filled">▦</span>
+                        <h2>Dias da semana com mais curtidas</h2>
+                    </div>
+                    <div class="bar-chart" id="weekChart"></div>
+                    <p class="highlight" id="weekHighlight">★ Carregando…</p>
+                </article>
+
+                <article class="panel compact-panel">
+                    <div class="panel-title-icon">
+                        <span class="mini-icon warm">●</span>
+                        <h2>Insights para você</h2>
+                    </div>
+                    <div class="insights" id="insights"></div>
+                </article>
+
+            </section>
+
+            <footer id="reportFooter"></footer>
+
+        </div><!-- /#dashContent -->
+
+    </main>
+
+    <!-- api.js DEVE vir antes de dashboard_relatorio.js -->
+    <script src="../../../public/assets/js/api.js"></script>
+    <script src="../../../public/assets/js/dashboard_relatorio.js"></script>
+
+    <!-- Logout e expiração de sessão -->
+    <script>
+        document.getElementById('logoutBtn').addEventListener('click', function () {
+            clearToken();
+            window.location.href = '../login.html';
+        });
+
+        // Quando o token expira (401), api.js dispara este evento
+        window.addEventListener('sessionExpired', function () {
+            window.location.href = '../login.html';
+        });
+    </script>
+
+</body>
+</html>

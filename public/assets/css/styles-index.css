@@ -1,0 +1,332 @@
+@import url('https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,100..900;1,100..900&display=swap');
+
+:root {
+   --cor-roxa: rgb(120, 0, 255);
+   --cor-amarela: rgb(255, 246, 0);
+}
+
+* {
+   margin: 0;
+   padding: 0;
+   box-sizing: border-box;
+   font-family: "Roboto", sans-serif;
+}
+
+html {
+   scroll-behavior: smooth;
+}
+
+header {
+   background-color: rgb(255, 255, 255);
+   color: var(--cor-roxa);
+}
+
+.nav-list {
+   display: flex;
+   align-items: center;
+   justify-content: center;
+   margin: 0;
+   margin-bottom: 60px;
+}
+
+.menu {
+   display: flex;
+}
+
+.menu li {
+   margin: 25px;
+   list-style-type: none;
+   padding: 20px;
+}
+
+.menu li a {
+   text-decoration: none;
+   color: inherit;
+   font-size: 20px;
+}
+
+.menu li a:hover {
+   color: #000;
+   transition: 0.4s ease;
+}
+
+.logo img {
+   width: 50px;
+   height: 50px;
+}
+
+.hamburguer {
+   display: none;
+   flex-direction: column;
+   cursor: pointer;
+}
+
+.color-word {
+   color: var(--cor-amarela);
+}
+
+#sobre {
+   margin-top: 20%;
+   display: flex;
+   justify-content: center;
+   flex-direction: column;
+   align-items: center;
+}
+
+#sobre h1,
+h2 {
+   font-size: 40px;
+}
+
+#sobre span {
+   font-size: 30px;
+}
+
+#sobre img {
+   margin-top: 20px;
+   width: 70%;
+   border: solid 1px;
+   box-shadow: 1px 1px 5px 2px;
+}
+
+#sobre h2 {
+   margin-top: 10%;
+}
+
+#sobre a {
+   cursor: pointer;
+   font-size: 25px;
+   border: none;
+   background-color: var(--cor-roxa);
+   font-family: Impact, Haettenschweiler, 'Arial Narrow Bold', sans-serif;
+   border-radius: 10px;
+   width: 15%;
+   margin-top: 30px;
+   margin-bottom: 10%;
+   height: 2.5rem;
+   text-align: center;
+   text-decoration: none;
+   color: rgb(255,255,255);
+}
+
+#sobre a:hover {
+   color: #ffff;
+   transition: 0.4s ease;
+}
+
+#sobre .logo img {
+   width: 400px;
+   height: 400px;
+   border: none;
+   box-shadow: none;
+}
+
+
+#sobre .logo img:hover {
+   transform: scale(0.9);
+   transition: 0.4s ease;
+}
+
+.rodape {
+   display: flex;
+   justify-content: space-between;
+}
+
+.rodape span {
+   margin: 20px;
+   font-size: 25px;
+}
+
+.redes-sociais {
+   display: flex;
+   justify-content: end;
+   margin-right: 10%;
+}
+
+.redes-sociais a {
+   list-style-type: none;
+   color: inherit;
+}
+
+.redes-sociais a:hover {
+   color: #0077b5;
+}
+
+.empresa {
+   display: flex;
+   margin-left: 10%;
+}
+
+.empresa a {
+   text-decoration: none;
+   color: inherit;
+}
+
+.empresa a:hover {
+   color: #0077b5;
+}
+
+.botao {
+   display: flex;
+   /* flex-direction: column; */
+}
+
+.botoes-flutuantes {
+   position: fixed;
+   bottom: 10px;
+   z-index: 1000;
+}
+
+
+.botoes-fala i {
+   text-align: center;
+}
+
+.botoes-flutuantes button {
+   margin: 5px;
+   padding: 10px;
+   background-color: #d3d3d3;
+   color: rgb(0, 0, 0);
+   border: none;
+   border-radius: 5px;
+   text-transform: uppercase;
+}
+
+.botoes-flutuantes button:hover {
+   color: var(--cor-amarela);
+   transition: 0.4s ease;
+}
+
+/* tablet- */
+@media screen and (max-width:768px) {
+   .hamburguer {
+      display: flex;
+      cursor: pointer;
+      flex-direction: column;
+      gap: 5px;
+
+   }
+
+
+
+   .hamburguer .bar {
+      width: 40px;
+      height: 6px;
+      background: var(--cor-roxa);
+      margin: 4px 0;
+      border-radius: 30px;
+   }
+
+   .menu {
+      display: none;
+      flex-direction: column;
+      position: absolute;
+      top: 90px;
+      right: 0;
+      background-color: #ffffff;
+      width: 100%;
+      padding: 20px;
+      gap: 15px;
+      border-radius: 5px;
+   }
+
+   .menu.show {
+      display: flex;
+      align-items: center;
+      width: 20%;
+      z-index: 1000;
+      /* transition: 0.3s; */
+      animation: abrirMenu 0.4s ease;
+   }
+
+   .nav-list {
+      display: flex;
+      justify-content: space-between;
+      margin: 20px;
+   }
+
+   .menu li {
+      margin: 0;
+   }
+
+   #sobre a {
+      width: 30%;
+   }
+}
+
+/* celular modo retrato */
+@media screen and (max-width:480px) {
+   .rodape span {
+      margin: 15px;
+      font-size: 23px;
+   }
+
+   .redes-sociais span {
+      font-size: 23px;
+   }
+
+   .empresa {
+      display: flex;
+
+      margin-left: 20px;
+
+   }
+
+   .empresa {
+      margin-right: 20px;
+   }
+
+   .redes-sociais{
+      margin-right: 20px;
+   }
+
+   .menu.show {
+      width: 34%;
+      box-shadow: -5px 8px 11px 1px #a78bc7;
+      animation: abrirMenu 0.4s ease;
+   }
+
+   @keyframes abrirMenu {
+      0% {
+         transform: translateX(100%);
+      }
+
+      100% {
+         transform: translateX(0);
+      }
+
+   }
+
+   .menu li {
+
+      padding: 21px;
+      margin: 5.5px;
+   }
+
+   #sobre img {
+      width: 90%;
+      margin-left: 20px;
+      margin-right: 20px;
+   }
+
+   #sobre .logo img {
+      width: 300px;
+      height: 300px;
+   }
+
+
+   /* .menu.fechar {
+    animation: fecharMenu 0.4s ease forwards;
+}
+ 
+   @keyframes fecharMenu{
+      0%{
+         transform: translateX(0);
+      }
+
+      100%{
+         transform: translateX(100%);
+      }
+   } */
+
+}

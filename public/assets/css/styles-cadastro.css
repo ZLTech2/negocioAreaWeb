@@ -1,0 +1,290 @@
+:root {
+   --cor-roxa: rgb(120, 0, 255);
+   --cor-amarela: rgb(255, 246, 0);
+}
+
+@import url('https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,100..900;1,100..900&display=swap');
+
+* {
+   margin: 0;
+   padding: 0;
+   box-sizing: border-box;
+   font-family: "Roboto", sans-serif;
+
+}
+
+html {
+   scroll-behavior: smooth;
+}
+
+body {
+
+   /* background-color: rgb(194, 194, 194); */
+   background-image: url(../images/fundo.jpg);
+   background-size: cover;
+   background-repeat: no-repeat;
+   background-position: center;
+   min-height: 100vh;
+}
+
+header {
+   /* background-color: rgb(255, 255, 255); */
+   color: rgb(255, 255, 255);
+}
+
+#msg {
+   font-size: 16px;
+   color: #000;
+   text-align: center;
+}
+
+.nav-list {
+   display: flex;
+   align-items: center;
+   justify-content: center;
+   margin: 0;
+   margin-bottom: 30px;
+}
+
+.menu {
+   display: flex;
+}
+
+.menu li {
+   margin: 25px;
+   list-style-type: none;
+   padding: 20px;
+}
+
+.menu li a {
+   text-decoration: none;
+   color: inherit;
+   font-size: 20px;
+}
+
+.menu li a:hover {
+   color: var(--cor-amarela);
+   transition: 0.4s ease;
+}
+
+.logo img {
+   width: 50px;
+   height: 50px;
+}
+
+.hamburguer {
+   display: none;
+   flex-direction: column;
+   cursor: pointer;
+}
+
+.container-form {
+   /* border: solid red 1px; */
+   display: flex;
+   justify-content: center;
+   align-items: center;
+   flex-direction: column;
+   width: 100%;
+   height: auto;
+}
+
+
+.container-form form {
+   width: 50%;
+   padding: 20px;
+   background-color: rgb(255, 255, 255);
+   border-radius: 20px;
+   /* margin-bottom: 10%; */
+   height: auto;
+}
+
+.input-bloqueado {
+    background-color: #f0f0f0;
+    cursor: not-allowed;       
+    color: #666;              
+    border: 1px solid #ddd;
+}
+
+.campos{
+   /* border: solid red 1px; */
+   display: flex;
+   flex-wrap: wrap;
+   padding-bottom: 20px;
+   justify-content: center;
+}
+
+.input-label{
+   display: flex;
+   flex-direction: column;
+   padding-left: 10px;
+   margin-left: 10px;
+   margin-top: 10px;
+}
+
+.input-label input{
+   padding-left: 10px;
+}
+.input-label label{
+   padding-bottom: 10px;
+   padding-bottom: 10px;
+}
+
+
+
+.container-form label,
+.container-form form button {
+   font-size: 16px;
+   font-weight: bold;
+   /* text-transform: uppercase; */
+}
+
+.container-form form input, select,
+.container-form form button {
+   border: solid 1px;
+}
+
+.container-form form input:focus, select:focus {
+   outline: 2px solid var(--cor-roxa);
+}
+.container-form form input, select {
+   border-radius: 5px;
+   /* display: flex; */
+   height:2.5rem;
+   width: 300px;
+}
+
+.input-label p{
+   text-align: center;
+}
+
+.container-form form a{
+   /* max-width: 70%; */
+   font-weight: bold;
+   margin-top: 10px;
+   color: #000000;
+}
+
+button{
+   background: var(--cor-roxa);
+   width: 200px;
+   margin: 0 auto;
+   border-radius: 5px;
+   height: 2.5rem;
+   color: #ffffff;
+   cursor: pointer;
+   margin-bottom: 20px;
+}
+
+.container-form form button:hover {
+   background-color: rgb(167, 118, 224);
+   transition: 0.4s ease-in;
+}
+
+.hamburguer {
+   display: none;
+   flex-direction: column;
+   cursor: pointer;
+}
+
+/* tablet */
+@media screen and (max-width:768px) {
+   .hamburguer {
+      display: flex;
+      cursor: pointer;
+      flex-direction: column;
+      gap: 5px;
+
+   }
+
+   .hamburguer .bar {
+      width: 40px;
+      height: 6px;
+      background: white;
+      margin: 4px 0;
+      border-radius: 30px;
+   }
+
+   .menu {
+      display: none;
+      flex-direction: column;
+      position: absolute;
+      top: 75px;
+      right: 0;
+      background-color: rgb(135 81 196);
+      width: 100%;
+      padding: 20px;
+      gap: 15px;
+      border-radius: 5px;
+   }
+
+   .menu.show {
+      display: flex;
+      align-items: center;
+      width: 20%;
+      z-index: 1000;
+      /* transition: 0.3s; */
+   }
+
+
+
+   .nav-list {
+      display: flex;
+      justify-content: space-between;
+      margin: 20px;
+   }
+
+   .menu li {
+      margin: 0;
+   }
+
+   #sobre a {
+      width: 30%;
+   }
+
+   .container-form form {
+      width: 80%;
+   }
+
+   .container-form form input {
+      width: 50%;
+   }
+}
+
+/* celular modo retrato */
+@media screen and (max-width:480px) {
+   .menu.show {
+      width: 34%;
+      box-shadow: -5px 8px 11px 1px #a78bc7;
+      animation: abrirMenu 0.4s ease;
+      background-color: rgb(135 81 196 / 84%);
+   }
+
+   @keyframes abrirMenu {
+      0% {
+         transform: translateX(100%);
+      }
+
+      100% {
+         transform: translateX(0);
+      }
+
+   }
+
+   .container-form form input {
+      width: 82%;
+      box-shadow: 1px 3px 5px 1px #551a8b;
+   }
+
+   .container-form label {
+      width: 75%;
+   }
+
+   .container-form form button {
+      width: 56%;
+      color: #551a8b;
+      font-weight: bold;
+
+
+   }
+
+}
