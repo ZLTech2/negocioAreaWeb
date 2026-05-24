@@ -182,18 +182,21 @@ function buildRelatorioHTML(data, nomeEmpresa, periodoLabel) {
   const maxSem    = Math.max(...dadosDia.map(d => d.value), 1);
 
   // Barras verticais com valor em cima — igual ao modelo
-  const barrasSemana = dadosDia.map(d => {
-    const hPct = Math.max((d.value / maxSem) * 100, 1).toFixed(1);
-    return `
-      <div class="tc-col">
-        <div class="tc-val">${d.value > 0 ? `<strong>${d.value}</strong>` : ''}</div>
-        <div class="tc-bar-wrap">
-          <div class="tc-bar" style="height:${hPct}%"></div>
-        </div>
-        <div class="tc-x">${d.label}</div>
-      </div>
-    `;
-  }).join('');
+  const barrasSemana = (() => {
+    const barCols = dadosDia.map(d => {
+      const hPct = Math.max((d.value / maxSem) * 100, 1).toFixed(1);
+      return `<div class="tc-col">
+        <div class="tc-val">${d.value > 0 ? d.value : ''}</div>
+        <div class="tc-bar-wrap"><div class="tc-bar" style="height:${hPct}%"></div></div>
+      </div>`;
+    }).join('');
+    const lblCols = dadosDia.map(d => `<div class="tc-lbl">${d.label}</div>`).join('');
+    return `<div class="tc-outer">
+      <div class="tc-chart">${barCols}</div>
+      <div class="tc-axis"></div>
+      <div class="tc-labels">${lblCols}</div>
+    </div>`;
+  })();
 
   const slots     = [0, 3, 6, 9, 12, 15, 18, 21];
   const dadosHora = slots.map(h => ({
@@ -202,18 +205,21 @@ function buildRelatorioHTML(data, nomeEmpresa, periodoLabel) {
   }));
   const maxHoraV = Math.max(...dadosHora.map(d => d.value), 1);
 
-  const barrasHora = dadosHora.map(d => {
-    const hPct = Math.max((d.value / maxHoraV) * 100, 1).toFixed(1);
-    return `
-      <div class="tc-col">
-        <div class="tc-val">${d.value > 0 ? `<strong>${d.value}</strong>` : ''}</div>
-        <div class="tc-bar-wrap">
-          <div class="tc-bar" style="height:${hPct}%"></div>
-        </div>
-        <div class="tc-x">${d.label}</div>
-      </div>
-    `;
-  }).join('');
+  const barrasHora = (() => {
+    const barCols = dadosHora.map(d => {
+      const hPct = Math.max((d.value / maxHoraV) * 100, 1).toFixed(1);
+      return `<div class="tc-col">
+        <div class="tc-val">${d.value > 0 ? d.value : ''}</div>
+        <div class="tc-bar-wrap"><div class="tc-bar" style="height:${hPct}%"></div></div>
+      </div>`;
+    }).join('');
+    const lblCols = dadosHora.map(d => `<div class="tc-lbl">${d.label}</div>`).join('');
+    return `<div class="tc-outer">
+      <div class="tc-chart">${barCols}</div>
+      <div class="tc-axis"></div>
+      <div class="tc-labels">${lblCols}</div>
+    </div>`;
+  })();
 
   const notaSemana = peakDia
     ? `<strong>${nomeDiaSemana(peakDia.diaSemana)}</strong> é o dia de maior engajamento (${fmt(peakDia.total)} curtidas). ${dadosDia.filter(d=>d.value===0).length > 0 ? 'O fim de semana apresenta queda, especialmente nos dias sem registro.' : ''}`
@@ -336,12 +342,15 @@ function buildRelatorioHTML(data, nomeEmpresa, periodoLabel) {
   .temporal-grid { display: flex; gap: 32px; }
   .temporal-block { flex: 1; }
   .temporal-sub { font-size: 12px; font-weight: 700; color: #0f1221; margin-bottom: 10px; }
-  .tc-chart { display: flex; align-items: flex-end; gap: 4px; height: 120px; border-bottom: 1.5px solid #e8eaf4; padding-bottom: 16px; }
-  .tc-col { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; flex: 1; height: 100%; gap: 3px; }
-  .tc-val { font-size: 9px; color: #0f1221; min-height: 13px; text-align: center; }
-  .tc-bar-wrap { flex: 1; width: 100%; display: flex; align-items: flex-end; }
-  .tc-bar { width: 100%; background: #6b4ce6; border-radius: 2px 2px 0 0; min-height: 2px; opacity: .85; }
-  .tc-x { font-size: 9px; color: #6b7494; }
+  .tc-outer { display: flex; flex-direction: column; }
+  .tc-chart { display: flex; align-items: flex-end; gap: 4px; height: 100px; }
+  .tc-col { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; flex: 1; height: 100%; }
+  .tc-val { font-size: 9px; font-weight: 700; color: #0f1221; height: 14px; line-height: 14px; text-align: center; }
+  .tc-bar-wrap { width: 100%; display: flex; align-items: flex-end; flex: 1; }
+  .tc-bar { width: 80%; margin: 0 auto; background: #6b4ce6; border-radius: 2px 2px 0 0; min-height: 2px; opacity: .9; }
+  .tc-axis { border-top: 1.5px solid #d1d5f0; margin: 0 0 0; }
+  .tc-labels { display: flex; gap: 4px; margin-top: 4px; }
+  .tc-lbl { flex: 1; text-align: center; font-size: 9px; color: #6b7494; }
   .temporal-note { font-size: 11px; color: #0f1221; line-height: 1.6; margin-top: 8px; }
 
   /* ── RECOMENDAÇÕES ─────────────────────────────────────────────────── */
@@ -410,12 +419,12 @@ function buildRelatorioHTML(data, nomeEmpresa, periodoLabel) {
   <div class="temporal-grid">
     <div class="temporal-block">
       <div class="temporal-sub">Curtidas por dia da semana</div>
-      <div class="tc-chart">${barrasSemana}</div>
+      ${barrasSemana}
       ${notaSemana ? `<p class="temporal-note">${notaSemana}</p>` : ''}
     </div>
     <div class="temporal-block">
       <div class="temporal-sub">Curtidas por horário</div>
-      <div class="tc-chart">${barrasHora}</div>
+      ${barrasHora}
       ${notaHora ? `<p class="temporal-note">${notaHora}</p>` : ''}
     </div>
   </div>
